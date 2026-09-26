@@ -4,7 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
-
+print("new")
 local FOLDER_NAME = "RenderedEggs"
 local TELEPORT_HEIGHT_OFFSET = 5 -- studs above the model to land on top of it
 
