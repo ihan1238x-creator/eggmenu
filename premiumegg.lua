@@ -11,7 +11,7 @@ local TELEPORT_HEIGHT_OFFSET = 5 -- studs above the model to land on top of it
 -- If this script is loaded via loadstring(game:HttpGet(SCRIPT_URL))(), setting this lets
 -- Server Hop automatically requeue it so it re-runs right after joining the new server.
 -- Leave blank if you're loading it another way (then it just won't auto re-execute).
-local SCRIPT_URL = ""
+local SCRIPT_URL = "https://raw.githubusercontent.com/ihan1238x-creator/eggmenu/refs/heads/main/premiumegg.lua"
 
 local eggFolder = Workspace:WaitForChild(FOLDER_NAME)
 local plotsFolder = Workspace:WaitForChild("Plots")
