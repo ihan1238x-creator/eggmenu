@@ -711,9 +711,9 @@ local _, autoFarmChecklistScroll = createSection(eggTabContent, "Auto Farm Eggs 
 local EGG_NAMES = {
     "White Egg", "Brown Egg", "Cracked Egg", "Easter Egg", "Stone Egg",
     "Leaf Egg", "Mushroom Egg", "Flower Egg", "Slime Egg", "Ice Egg",
-    "Glass Egg", "Golden Egg", "Diamond Egg", "Crystal Egg", "Skull Egg",
-    "Dominus Egg", "Flaming Egg", "Sinister Egg", "Soul Egg", "Aurora Egg",
-    "Galaxy Egg", "Blackhole Egg", "Solaris Egg", "Cherub Egg",
+    "Glass Egg", "Golden Egg", "Diamond Egg", "Crystal Egg", "Skull Egg","Asteroid Egg",
+    "Dominus Egg", "Flaming Egg", "Sinister Egg", "Soul Egg","Tidal Egg", "Aurora Egg",
+    "Galaxy Egg","Bloom Egg", "Blackhole Egg", "Solaris Egg", "Cherub Egg","Volcanic Egg",
 }
 
 for _, eggName in ipairs(EGG_NAMES) do
