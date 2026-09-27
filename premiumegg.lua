@@ -1,15 +1,14 @@
-print("LOADING VERSION 2.0")
-print("eldino")
-wait(5)
-print("loading")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+
 local FOLDER_NAME = "RenderedEggs"
 local TELEPORT_HEIGHT_OFFSET = 5 -- studs above the model to land on top of it
+
 -- If this script is loaded via loadstring(game:HttpGet(SCRIPT_URL))(), setting this lets
 -- Server Hop automatically requeue it so it re-runs right after joining the new server.
 -- Leave blank if you're loading it another way (then it just won't auto re-execute).
@@ -476,6 +475,8 @@ end
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "EggMenu_GUI"
 screenGui.ResetOnSpawn = false
+screenGui.DisplayOrder = 2147483647 -- max value: draw above every other ScreenGui in the game
+screenGui.IgnoreGuiInset = true -- let the backdrop cover the whole screen, including behind the top bar area
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 ----------------------------------------------------------------
@@ -667,35 +668,60 @@ guiScale.Parent = mainFrame
 ----------------------------------------------------------------
 
 local FADE_DURATION = 0.25
-local fadeTweenInfo = TweenInfo.new(FADE_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 mainFrame.GroupTransparency = 0
 backdrop.BackgroundTransparency = 0 -- menu starts open, so the backdrop starts opaque
 
+local fadeConnection = nil
+
+-- Drives mainFrame.GroupTransparency and backdrop.BackgroundTransparency from the
+-- SAME value every frame, so they can never visually drift apart from each other
+-- (two independent Tweens can desync slightly since mainFrame is a CanvasGroup).
+local function fadeMenu(showing)
+    if fadeConnection then
+        fadeConnection:Disconnect()
+        fadeConnection = nil
+    end
+
+    local startAlpha = showing and 1 or 0
+    local endAlpha = showing and 0 or 1
+
+    if showing then
+        mainFrame.Visible = true
+        backdrop.Visible = true
+        startSnowAnimation()
+    end
+
+    local elapsed = 0
+    fadeConnection = RunService.RenderStepped:Connect(function(dt)
+        elapsed = elapsed + dt
+        local t = math.clamp(elapsed / FADE_DURATION, 0, 1)
+        local eased = 1 - (1 - t) ^ 2 -- quad ease-out, matches the old TweenInfo
+        local alpha = startAlpha + (endAlpha - startAlpha) * eased
+
+        mainFrame.GroupTransparency = alpha
+        backdrop.BackgroundTransparency = alpha
+
+        if t >= 1 then
+            fadeConnection:Disconnect()
+            fadeConnection = nil
+
+            if not showing then
+                mainFrame.Visible = false
+                backdrop.Visible = false
+                stopSnowAnimation()
+            end
+        end
+    end)
+end
+
 local function setMenuVisible(shouldShow)
     if shouldShow then
         if mainFrame.Visible then return end
-        mainFrame.Visible = true
-        mainFrame.GroupTransparency = 1
-        TweenService:Create(mainFrame, fadeTweenInfo, {GroupTransparency = 0}):Play()
-
-        backdrop.Visible = true
-        TweenService:Create(backdrop, fadeTweenInfo, {BackgroundTransparency = 0}):Play()
-        startSnowAnimation()
+        fadeMenu(true)
     else
         if not mainFrame.Visible then return end
-        local tween = TweenService:Create(mainFrame, fadeTweenInfo, {GroupTransparency = 1})
-        tween.Completed:Connect(function()
-            mainFrame.Visible = false
-        end)
-        tween:Play()
-
-        local backdropTween = TweenService:Create(backdrop, fadeTweenInfo, {BackgroundTransparency = 1})
-        backdropTween.Completed:Connect(function()
-            backdrop.Visible = false
-        end)
-        backdropTween:Play()
-        stopSnowAnimation()
+        fadeMenu(false)
     end
 end
 
