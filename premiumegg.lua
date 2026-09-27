@@ -4,7 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
-print("loaded")
+
 local FOLDER_NAME = "RenderedEggs"
 local TELEPORT_HEIGHT_OFFSET = 5 -- studs above the model to land on top of it
 
@@ -476,14 +476,147 @@ screenGui.Name = "EggMenu_GUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
+----------------------------------------------------------------
+-- Intro splash (black screen + "T" logo, fades out on load)
+----------------------------------------------------------------
+
+local introOverlay = Instance.new("Frame")
+introOverlay.Name = "IntroOverlay"
+introOverlay.Size = UDim2.new(1, 0, 1, 0)
+introOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
+introOverlay.BackgroundTransparency = 0
+introOverlay.BorderSizePixel = 0
+introOverlay.ZIndex = 1000
+introOverlay.Parent = screenGui
+
+local introLogo = Instance.new("TextLabel")
+introLogo.Name = "IntroLogo"
+introLogo.Size = UDim2.new(0, 220, 0, 220)
+introLogo.AnchorPoint = Vector2.new(0.5, 0.5)
+introLogo.Position = UDim2.new(0.5, 0, 0.5, 0)
+introLogo.BackgroundTransparency = 1
+introLogo.Font = Enum.Font.GothamBold
+introLogo.TextSize = 96
+introLogo.TextColor3 = Color3.fromRGB(140, 110, 255)
+introLogo.Text = "T"
+introLogo.ZIndex = 1001
+introLogo.Parent = introOverlay
+
+local INTRO_HOLD_TIME = 0.8
+local INTRO_FADE_TIME = 0.6
+
+task.delay(INTRO_HOLD_TIME, function()
+    local overlayFadeTween = TweenService:Create(
+        introOverlay,
+        TweenInfo.new(INTRO_FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {BackgroundTransparency = 1}
+    )
+    local logoFadeTween = TweenService:Create(
+        introLogo,
+        TweenInfo.new(INTRO_FADE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {TextTransparency = 1}
+    )
+
+    overlayFadeTween.Completed:Connect(function()
+        introOverlay:Destroy()
+    end)
+
+    overlayFadeTween:Play()
+    logoFadeTween:Play()
+end)
+
+----------------------------------------------------------------
+-- Fullscreen backdrop (blacks out the game view while the menu is open)
+----------------------------------------------------------------
+
+local backdrop = Instance.new("Frame")
+backdrop.Name = "Backdrop"
+backdrop.Size = UDim2.new(1, 0, 1, 0)
+backdrop.Position = UDim2.new(0, 0, 0, 0)
+backdrop.BackgroundColor3 = Color3.new(0, 0, 0)
+backdrop.BackgroundTransparency = 0
+backdrop.BorderSizePixel = 0
+backdrop.ZIndex = 0
+backdrop.Parent = screenGui
+
+-- Snowfall lives on the backdrop (outside the menu), not inside mainFrame
+local snowLayer = Instance.new("Frame")
+snowLayer.Name = "SnowLayer"
+snowLayer.Size = UDim2.new(1, 0, 1, 0)
+snowLayer.BackgroundTransparency = 1
+snowLayer.ZIndex = 1
+snowLayer.Parent = backdrop
+
+local SNOWFLAKE_COUNT = 60
+local snowflakes = {}
+
+for _ = 1, SNOWFLAKE_COUNT do
+    local size = math.random(2, 5)
+    local flake = Instance.new("Frame")
+    flake.Size = UDim2.new(0, size, 0, size)
+    flake.Position = UDim2.new(math.random(), 0, math.random(), 0)
+    flake.BackgroundColor3 = Color3.new(1, 1, 1)
+    flake.BackgroundTransparency = math.random(20, 60) / 100
+    flake.BorderSizePixel = 0
+    flake.ZIndex = 1
+    flake.Parent = snowLayer
+
+    local flakeCorner = Instance.new("UICorner")
+    flakeCorner.CornerRadius = UDim.new(1, 0)
+    flakeCorner.Parent = flake
+
+    table.insert(snowflakes, {
+        instance = flake,
+        fallSpeed = math.random(8, 20) / 100,   -- fraction of height per second
+        driftSpeed = math.random(-15, 15) / 1000, -- fraction of width per tick
+    })
+end
+
+local snowAnimationRunning = false
+
+local function startSnowAnimation()
+    if snowAnimationRunning then return end
+    snowAnimationRunning = true
+
+    task.spawn(function()
+        while snowAnimationRunning do
+            local dt = task.wait(0.03)
+
+            for _, flake in ipairs(snowflakes) do
+                local pos = flake.instance.Position
+                local newY = pos.Y.Scale + flake.fallSpeed * dt
+                local newX = pos.X.Scale + flake.driftSpeed
+
+                if newY > 1.05 then
+                    newY = -0.05
+                    newX = math.random()
+                end
+
+                if newX < -0.05 then
+                    newX = 1.05
+                elseif newX > 1.05 then
+                    newX = -0.05
+                end
+
+                flake.instance.Position = UDim2.new(newX, 0, newY, 0)
+            end
+        end
+    end)
+end
+
+local function stopSnowAnimation()
+    snowAnimationRunning = false
+end
+
 local mainFrame = Instance.new("CanvasGroup")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 520, 0, 420)
 mainFrame.Position = UDim2.new(0, 40, 0, 40)
 mainFrame.BackgroundColor3 = THEME_BG
-mainFrame.BackgroundTransparency = 0.1
+mainFrame.BackgroundTransparency = 0
 mainFrame.BorderSizePixel = 0
 mainFrame.ClipsDescendants = true
+mainFrame.ZIndex = 1 -- draw above the backdrop + snow
 mainFrame.Parent = screenGui
 
 local mainCorner = Instance.new("UICorner")
@@ -535,6 +668,7 @@ local FADE_DURATION = 0.25
 local fadeTweenInfo = TweenInfo.new(FADE_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 mainFrame.GroupTransparency = 0
+backdrop.BackgroundTransparency = 0 -- menu starts open, so the backdrop starts opaque
 
 local function setMenuVisible(shouldShow)
     if shouldShow then
@@ -542,6 +676,10 @@ local function setMenuVisible(shouldShow)
         mainFrame.Visible = true
         mainFrame.GroupTransparency = 1
         TweenService:Create(mainFrame, fadeTweenInfo, {GroupTransparency = 0}):Play()
+
+        backdrop.Visible = true
+        TweenService:Create(backdrop, fadeTweenInfo, {BackgroundTransparency = 0}):Play()
+        startSnowAnimation()
     else
         if not mainFrame.Visible then return end
         local tween = TweenService:Create(mainFrame, fadeTweenInfo, {GroupTransparency = 1})
@@ -549,12 +687,21 @@ local function setMenuVisible(shouldShow)
             mainFrame.Visible = false
         end)
         tween:Play()
+
+        local backdropTween = TweenService:Create(backdrop, fadeTweenInfo, {BackgroundTransparency = 1})
+        backdropTween.Completed:Connect(function()
+            backdrop.Visible = false
+        end)
+        backdropTween:Play()
+        stopSnowAnimation()
     end
 end
 
 local function toggleMenu()
     setMenuVisible(not mainFrame.Visible)
 end
+
+startSnowAnimation() -- menu starts open, so start the snow right away
 
 -- Top bar (drag handle)
 local topBar = Instance.new("TextLabel")
@@ -571,7 +718,10 @@ topBar.TextXAlignment = Enum.TextXAlignment.Left
 topBar.Parent = mainFrame
 
 local topBarCorner = Instance.new("UICorner")
-topBarCorner.CornerRadius = UDim.new(0, 10)
+topBarCorner.TopLeftRadius = UDim.new(0, 10)
+topBarCorner.TopRightRadius = UDim.new(0, 10)
+topBarCorner.BottomLeftRadius = UDim.new(0, 0)
+topBarCorner.BottomRightRadius = UDim.new(0, 0)
 topBarCorner.Parent = topBar
 
 makeDraggable(mainFrame, topBar)
@@ -629,7 +779,8 @@ end
 local function createTabContent()
     local frame = Instance.new("CanvasGroup")
     frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundTransparency = 1
+    frame.BackgroundColor3 = THEME_BG
+    frame.BackgroundTransparency = 0
     frame.GroupTransparency = 1
     frame.Visible = false
     frame.Parent = contentArea
@@ -640,11 +791,13 @@ local eggTabButton = createTabButton("Egg")
 local playersTabButton = createTabButton("Players")
 local teleportsTabButton = createTabButton("Teleports")
 local settingsTabButton = createTabButton("Settings")
+local exploitsTabButton = createTabButton("Exploits")
 
 local eggTabContent = createTabContent()
 local playersTabContent = createTabContent()
 local teleportsTabContent = createTabContent()
 local settingsTabContent = createTabContent()
+local exploitsTabContent = createTabContent()
 
 local TAB_ACTIVE_COLOR = THEME_ACCENT
 local TAB_INACTIVE_COLOR = THEME_PANEL_LIGHT
@@ -654,6 +807,7 @@ local tabs = {
     {button = playersTabButton, content = playersTabContent},
     {button = teleportsTabButton, content = teleportsTabContent},
     {button = settingsTabButton, content = settingsTabContent},
+    {button = exploitsTabButton, content = exploitsTabContent},
 }
 
 local function selectTab(chosenContent)
@@ -670,11 +824,52 @@ for _, tab in ipairs(tabs) do
         selectTab(tab.content)
     end)
 end
+---------UICORNERS FOR TABS BELOW HERE
+local tabbaruicorner = Instance.new("UICorner")
+tabbaruicorner.BottomRightRadius = UDim.new(0, 0)
+tabbaruicorner.BottomLeftRadius = UDim.new(0, 10)
+tabbaruicorner.TopRightRadius = UDim.new(0, 0)
+tabbaruicorner.TopLeftRadius = UDim.new(0, 0)
+tabbaruicorner.Parent = tabBar
 
+local eggcornerui = Instance.new("UICorner")
+eggcornerui.BottomRightRadius = UDim.new(0, 10)
+eggcornerui.BottomLeftRadius = UDim.new(0, 0)
+eggcornerui.TopRightRadius = UDim.new(0, 0)
+eggcornerui.TopLeftRadius = UDim.new(0, 0)
+eggcornerui.Parent = eggTabContent
+
+local playerscorner = Instance.new("UICorner")
+playerscorner.BottomRightRadius = UDim.new(0, 10)
+playerscorner.BottomLeftRadius = UDim.new(0, 0)
+playerscorner.TopRightRadius = UDim.new(0, 0)
+playerscorner.TopLeftRadius = UDim.new(0, 0)
+playerscorner.Parent = playersTabContent
+
+local teleportscorner = Instance.new("UICorner")
+teleportscorner.BottomRightRadius = UDim.new(0, 10)
+teleportscorner.BottomLeftRadius = UDim.new(0, 0)
+teleportscorner.TopRightRadius = UDim.new(0, 0)
+teleportscorner.TopLeftRadius = UDim.new(0, 0)
+teleportscorner.Parent = teleportsTabContent
+
+local settingscorner = Instance.new("UICorner")
+settingscorner.BottomRightRadius = UDim.new(0, 10)
+settingscorner.BottomLeftRadius = UDim.new(0, 0)
+settingscorner.TopRightRadius = UDim.new(0, 0)
+settingscorner.TopLeftRadius = UDim.new(0, 0)
+settingscorner.Parent = settingsTabContent
+
+local exploitscorner = Instance.new("UICorner")
+exploitscorner.BottomRightRadius = UDim.new(0, 10)
+exploitscorner.BottomLeftRadius = UDim.new(0, 0)
+exploitscorner.TopRightRadius = UDim.new(0, 0)
+exploitscorner.TopLeftRadius = UDim.new(0, 0)
+exploitscorner.Parent = exploitsTabContent
+---------
 ----------------------------------------------------------------
 -- Egg tab: Auto Farm toggle + view-only Eggs list + Top Luck + checklist
 ----------------------------------------------------------------
-
 local autoFarmButton = Instance.new("TextButton")
 autoFarmButton.Name = "AutoFarmButton"
 autoFarmButton.Size = UDim2.new(1, -20, 0, 36)
@@ -1120,6 +1315,165 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 
     if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == toggleKeybind then
         toggleMenu()
+    end
+end)
+
+----------------------------------------------------------------
+-- Exploits tab (Auto Upgrade spam, rate controlled by slider)
+----------------------------------------------------------------
+
+local upgradesRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Game"):WaitForChild("Plot"):WaitForChild("Upgrades")
+
+local autoUpgradeEnabled = false
+local upgradeFireRate = 0 -- 0-100, how many times per second to fire Upgrades
+
+local autoUpgradeButton = Instance.new("TextButton")
+autoUpgradeButton.Name = "AutoUpgradeButton"
+autoUpgradeButton.Size = UDim2.new(0, 160, 0, 40)
+autoUpgradeButton.Position = UDim2.new(0, 10, 0, 10)
+autoUpgradeButton.BackgroundColor3 = THEME_PANEL_LIGHT
+autoUpgradeButton.BorderSizePixel = 0
+autoUpgradeButton.Font = Enum.Font.GothamBold
+autoUpgradeButton.TextSize = 16
+autoUpgradeButton.TextColor3 = THEME_TEXT
+autoUpgradeButton.Text = "Auto Upgrade: OFF"
+autoUpgradeButton.Parent = exploitsTabContent
+
+local autoUpgradeButtonCorner = Instance.new("UICorner")
+autoUpgradeButtonCorner.CornerRadius = UDim.new(0, 8)
+autoUpgradeButtonCorner.Parent = autoUpgradeButton
+
+addStroke(autoUpgradeButton, THEME_ACCENT, 1, 0.6)
+
+autoUpgradeButton.MouseButton1Click:Connect(function()
+    autoUpgradeEnabled = not autoUpgradeEnabled
+    autoUpgradeButton.Text = autoUpgradeEnabled and "Auto Upgrade: ON" or "Auto Upgrade: OFF"
+    autoUpgradeButton.BackgroundColor3 = autoUpgradeEnabled and THEME_SUCCESS or THEME_PANEL_LIGHT
+end)
+
+-- Fire-rate slider (0-100 fires per second), sits to the right of the toggle button
+local upgradeSliderTrack = Instance.new("Frame")
+upgradeSliderTrack.Size = UDim2.new(0, 170, 0, 6)
+upgradeSliderTrack.Position = UDim2.new(0, 190, 0, 27)
+upgradeSliderTrack.BackgroundColor3 = THEME_PANEL_LIGHT
+upgradeSliderTrack.BorderSizePixel = 0
+upgradeSliderTrack.Parent = exploitsTabContent
+
+local upgradeSliderTrackCorner = Instance.new("UICorner")
+upgradeSliderTrackCorner.CornerRadius = UDim.new(1, 0)
+upgradeSliderTrackCorner.Parent = upgradeSliderTrack
+
+addStroke(upgradeSliderTrack, THEME_ACCENT, 1, 0.6)
+
+local upgradeSliderFill = Instance.new("Frame")
+upgradeSliderFill.Size = UDim2.new(0, 0, 1, 0)
+upgradeSliderFill.BackgroundColor3 = THEME_ACCENT
+upgradeSliderFill.BorderSizePixel = 0
+upgradeSliderFill.Parent = upgradeSliderTrack
+
+local upgradeSliderFillCorner = Instance.new("UICorner")
+upgradeSliderFillCorner.CornerRadius = UDim.new(1, 0)
+upgradeSliderFillCorner.Parent = upgradeSliderFill
+
+local upgradeSliderHandle = Instance.new("TextButton")
+upgradeSliderHandle.Size = UDim2.new(0, 16, 0, 16)
+upgradeSliderHandle.AnchorPoint = Vector2.new(0.5, 0.5)
+upgradeSliderHandle.Position = UDim2.new(0, 0, 0.5, 0)
+upgradeSliderHandle.BackgroundColor3 = THEME_TEXT
+upgradeSliderHandle.BorderSizePixel = 0
+upgradeSliderHandle.Text = ""
+upgradeSliderHandle.AutoButtonColor = false
+upgradeSliderHandle.Parent = upgradeSliderTrack
+
+local upgradeSliderHandleCorner = Instance.new("UICorner")
+upgradeSliderHandleCorner.CornerRadius = UDim.new(1, 0)
+upgradeSliderHandleCorner.Parent = upgradeSliderHandle
+
+addStroke(upgradeSliderHandle, THEME_ACCENT, 2, 0.2)
+
+local upgradeRateLabel = Instance.new("TextLabel")
+upgradeRateLabel.Size = UDim2.new(0, 70, 0, 30)
+upgradeRateLabel.Position = UDim2.new(0, 370, 0, 12)
+upgradeRateLabel.BackgroundTransparency = 1
+upgradeRateLabel.Font = Enum.Font.GothamBold
+upgradeRateLabel.TextSize = 14
+upgradeRateLabel.TextColor3 = THEME_TEXT
+upgradeRateLabel.TextXAlignment = Enum.TextXAlignment.Left
+upgradeRateLabel.Text = "0/100"
+upgradeRateLabel.Parent = exploitsTabContent
+
+local function updateUpgradeSliderVisual(value)
+    local fraction = value / 100
+    upgradeSliderFill.Size = UDim2.new(fraction, 0, 1, 0)
+    upgradeSliderHandle.Position = UDim2.new(fraction, 0, 0.5, 0)
+end
+
+local function setUpgradeFireRate(value)
+    value = math.clamp(math.floor(value + 0.5), 0, 100)
+    upgradeFireRate = value
+    upgradeRateLabel.Text = value .. "/100"
+    updateUpgradeSliderVisual(value)
+end
+
+setUpgradeFireRate(0)
+
+local draggingUpgradeSlider = false
+
+local function updateUpgradeRateFromInputX(inputX)
+    local trackPos = upgradeSliderTrack.AbsolutePosition.X
+    local trackSize = upgradeSliderTrack.AbsoluteSize.X
+    local fraction = math.clamp((inputX - trackPos) / trackSize, 0, 1)
+    setUpgradeFireRate(fraction * 100)
+end
+
+upgradeSliderHandle.InputBegan:Connect(function(input)
+    if isPointerInput(input) then
+        draggingUpgradeSlider = true
+    end
+end)
+
+upgradeSliderTrack.InputBegan:Connect(function(input)
+    if isPointerInput(input) then
+        draggingUpgradeSlider = true
+        updateUpgradeRateFromInputX(input.Position.X)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingUpgradeSlider
+        and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateUpgradeRateFromInputX(input.Position.X)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if isPointerInput(input) and draggingUpgradeSlider then
+        draggingUpgradeSlider = false
+    end
+end)
+
+-- Background loop: while enabled, fires Upgrades `upgradeFireRate` times, spread across ~1 second, then repeats
+task.spawn(function()
+    while true do
+        if autoUpgradeEnabled and upgradeFireRate > 0 then
+            local count = upgradeFireRate
+            local interval = 1 / count
+
+            for _ = 1, count do
+                if not autoUpgradeEnabled then break end
+
+                local ok, err = pcall(function()
+                    upgradesRemote:FireServer()
+                end)
+                if not ok then
+                    warn("Upgrades FireServer failed: " .. tostring(err))
+                end
+
+                task.wait(interval)
+            end
+        else
+            task.wait(0.1)
+        end
     end
 end)
 
