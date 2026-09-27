@@ -1,5 +1,6 @@
 print("LOADING VERSION 2.0")
-wait(3)
+print("eldino")
+wait(5)
 print("loading")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
