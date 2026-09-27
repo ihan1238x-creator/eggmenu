@@ -1,14 +1,14 @@
+print("LOADING VERSION 2.0")
+wait(1)
+print("loading")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
-print("LOADING VERSION 2.0")
 local FOLDER_NAME = "RenderedEggs"
 local TELEPORT_HEIGHT_OFFSET = 5 -- studs above the model to land on top of it
-wait(1)
-print("loading")
 -- If this script is loaded via loadstring(game:HttpGet(SCRIPT_URL))(), setting this lets
 -- Server Hop automatically requeue it so it re-runs right after joining the new server.
 -- Leave blank if you're loading it another way (then it just won't auto re-execute).
