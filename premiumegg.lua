@@ -550,7 +550,7 @@ snowLayer.BackgroundTransparency = 1
 snowLayer.ZIndex = 1
 snowLayer.Parent = backdrop
 
-local SNOWFLAKE_COUNT = 60
+local SNOWFLAKE_COUNT = 180
 local snowflakes = {}
 
 for _ = 1, SNOWFLAKE_COUNT do
@@ -570,8 +570,8 @@ for _ = 1, SNOWFLAKE_COUNT do
 
     table.insert(snowflakes, {
         instance = flake,
-        fallSpeed = math.random(8, 20) / 100,   -- fraction of height per second
-        driftSpeed = math.random(-15, 15) / 1000, -- fraction of width per tick
+        fallSpeed = math.random(10, 20) / 24000,   -- fraction of height per second
+        driftSpeed = math.random(-15, 15) / 16000, -- fraction of width per tick
     })
 end
 
@@ -667,7 +667,7 @@ guiScale.Parent = mainFrame
 -- Fade helpers (whole-menu open/close, and per-tab crossfade)
 ----------------------------------------------------------------
 
-local FADE_DURATION = 0.25
+local FADE_DURATION = 0.1
 
 mainFrame.GroupTransparency = 0
 backdrop.BackgroundTransparency = 0 -- menu starts open, so the backdrop starts opaque
@@ -726,6 +726,7 @@ local function setMenuVisible(shouldShow)
 end
 
 local function toggleMenu()
+    
     setMenuVisible(not mainFrame.Visible)
 end
 
@@ -741,7 +742,7 @@ topBar.BorderSizePixel = 0
 topBar.Font = Enum.Font.GothamBold
 topBar.TextSize = 16
 topBar.TextColor3 = THEME_TEXT
-topBar.Text = "  Egg Menu"
+topBar.Text = "  TRIX"
 topBar.TextXAlignment = Enum.TextXAlignment.Left
 topBar.Parent = mainFrame
 
