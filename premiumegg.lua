@@ -24,6 +24,7 @@ local playerEntries = {}      -- Player -> {button, square, nameLabel} (selectab
 local selectedPlayer = nil
 local selectedEggTypes = {}   -- eggName -> true if enabled for auto farm
 local autoFarmEnabled = false
+local autoPlaceEggsEnabled = false
 
 ----------------------------------------------------------------
 -- Theme (space palette)
@@ -134,6 +135,49 @@ for _, existingChild in ipairs(basketFolder:GetChildren()) do
 end
 
 basketFolder.ChildAdded:Connect(handleBasketChild)
+
+----------------------------------------------------------------
+-- Egg auto-placement (EggPlaced remote, cycles through 6 known plot slots)
+----------------------------------------------------------------
+
+local eggPlacedRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Game"):WaitForChild("EggPlaced")
+
+-- Position-only part of 6 known plot slot CFrames (rotation isn't needed for PlantPosition)
+local PLOT_PLANT_POSITIONS = {
+    Vector3.new(251.797546, 40312.6367, 760.928894),
+    Vector3.new(76.7529984, 40312.6367, 741.760193),
+    Vector3.new(214.974701, 40312.6367, 1097.18628),
+    Vector3.new(-42.5955048, 40312.6367, 890.468506),
+    Vector3.new(334.323242, 40312.6367, 948.478088),
+    Vector3.new(39.9301338, 40312.6367, 1078.01721),
+}
+
+-- Fires EggPlaced for every known plot slot, one at a time with a short gap
+-- between each call so it doesn't fire all 6 in the same instant (less likely
+-- to get flagged by rate-limit/anti-cheat checks than one big burst)
+local function autoPlaceEgg()
+    local unpackFn = table.unpack or unpack -- newer Luau dropped the global `unpack`
+
+    for _, position in ipairs(PLOT_PLANT_POSITIONS) do
+        local args = {
+            [1] = {
+                ["PlantPosition"] = position,
+            },
+        }
+
+        local ok, err = pcall(function()
+            eggPlacedRemote:FireServer(unpackFn(args))
+        end)
+
+        if ok then
+            print("Auto-placed egg at " .. tostring(position))
+        else
+            warn("EggPlaced FireServer failed: " .. tostring(err))
+        end
+
+        task.wait(0.1)
+    end
+end
 
 ----------------------------------------------------------------
 -- Teleport helpers
@@ -267,6 +311,11 @@ teleportToMyPlot = function()
     local targetPosition = cf.Position + Vector3.new(0, (size.Y / 2) + TELEPORT_HEIGHT_OFFSET, 0)
     teleportCharacterTo(targetPosition)
     print("Teleported to your plot: " .. plotModel.Name)
+
+    if autoFarmEnabled and autoPlaceEggsEnabled then
+        task.wait(1) -- let the teleport settle before placing
+        autoPlaceEgg()
+    end
 end
 
 ----------------------------------------------------------------
@@ -726,7 +775,6 @@ local function setMenuVisible(shouldShow)
 end
 
 local function toggleMenu()
-    
     setMenuVisible(not mainFrame.Visible)
 end
 
@@ -897,7 +945,8 @@ exploitscorner.TopLeftRadius = UDim.new(0, 0)
 exploitscorner.Parent = exploitsTabContent
 ---------
 ----------------------------------------------------------------
--- Egg tab: Auto Farm toggle + view-only Eggs list + Top Luck + checklist
+-- Egg tab: Auto Farm toggle + Autoplace Eggs toggle (revealed when Auto Farm is on)
+-- + view-only Eggs list + Top Luck + checklist
 ----------------------------------------------------------------
 local autoFarmButton = Instance.new("TextButton")
 autoFarmButton.Name = "AutoFarmButton"
@@ -917,20 +966,50 @@ autoFarmButtonCorner.Parent = autoFarmButton
 
 addStroke(autoFarmButton, THEME_ACCENT, 1, 0.6)
 
+-- Autoplace Eggs toggle: hidden until Auto Farm is turned on
+local autoPlaceEggsButton = Instance.new("TextButton")
+autoPlaceEggsButton.Name = "AutoPlaceEggsButton"
+autoPlaceEggsButton.Size = UDim2.new(1, -20, 0, 36)
+autoPlaceEggsButton.Position = UDim2.new(0, 10, 0, 50)
+autoPlaceEggsButton.BackgroundColor3 = THEME_PANEL_LIGHT
+autoPlaceEggsButton.BorderSizePixel = 0
+autoPlaceEggsButton.Font = Enum.Font.GothamBold
+autoPlaceEggsButton.TextSize = 16
+autoPlaceEggsButton.TextColor3 = THEME_TEXT
+autoPlaceEggsButton.Text = "Autoplace Eggs: OFF"
+autoPlaceEggsButton.Visible = false
+autoPlaceEggsButton.Parent = eggTabContent
+
+local autoPlaceEggsButtonCorner = Instance.new("UICorner")
+autoPlaceEggsButtonCorner.CornerRadius = UDim.new(0, 8)
+autoPlaceEggsButtonCorner.Parent = autoPlaceEggsButton
+
+addStroke(autoPlaceEggsButton, THEME_ACCENT, 1, 0.6)
+
 autoFarmButton.MouseButton1Click:Connect(function()
     autoFarmEnabled = not autoFarmEnabled
     autoFarmButton.Text = autoFarmEnabled and "Auto Farm: ON" or "Auto Farm: OFF"
     autoFarmButton.BackgroundColor3 = autoFarmEnabled
         and THEME_SUCCESS
         or THEME_PANEL_LIGHT
+
+    autoPlaceEggsButton.Visible = autoFarmEnabled
+end)
+
+autoPlaceEggsButton.MouseButton1Click:Connect(function()
+    autoPlaceEggsEnabled = not autoPlaceEggsEnabled
+    autoPlaceEggsButton.Text = autoPlaceEggsEnabled and "Autoplace Eggs: ON" or "Autoplace Eggs: OFF"
+    autoPlaceEggsButton.BackgroundColor3 = autoPlaceEggsEnabled
+        and THEME_SUCCESS
+        or THEME_PANEL_LIGHT
 end)
 
 -- Two view-only lists side by side: currently spawned Eggs, and Top Luck
-local eggListTitle, eggListScroll = createSection(eggTabContent, "Eggs (0)", 10, 56, 190, 130)
-local luckListTitle, luckListScroll = createSection(eggTabContent, "Top Luck (0)", 210, 56, 190, 130)
+local eggListTitle, eggListScroll = createSection(eggTabContent, "Eggs (0)", 10, 96, 190, 130)
+local luckListTitle, luckListScroll = createSection(eggTabContent, "Top Luck (0)", 210, 96, 190, 130)
 
 -- Auto Farm egg-type checklist, full width, fills the rest of the tab
-local _, autoFarmChecklistScroll = createSection(eggTabContent, "Auto Farm Eggs (select types)", 10, 196, 390, 180)
+local _, autoFarmChecklistScroll = createSection(eggTabContent, "Auto Farm Eggs (select types)", 10, 236, 390, 144)
 
 local EGG_NAMES = {
     "White Egg", "Brown Egg", "Cracked Egg", "Easter Egg", "Stone Egg",
